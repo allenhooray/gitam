@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const commander = require("commander");
+const { program } = require("commander");
 const package = require("./package.json");
 const { writeFile, clearFile, getObject } = require("./src/db");
 const {
@@ -9,14 +9,14 @@ const {
   selectAnAccount,
 } = require("./src/actions");
 
-commander
+program
   .version(package.version)
   .description(package.description)
   .action(async () => {
     await logCurrentConfig();
   });
 
-commander
+program
   .command("list")
   .alias("ls")
   .description("List all accounts.")
@@ -24,7 +24,7 @@ commander
     await listAccounts();
   });
 
-commander
+program
   .command("add")
   .description("Add an account.")
   .argument("<flag>", "Account Flag")
@@ -40,7 +40,7 @@ commander
     console.log("👌 Add success.");
   });
 
-commander
+program
   .command("use")
   .alias("u")
   .description("Use an account.")
@@ -71,7 +71,7 @@ commander
     }
   });
 
-commander
+program
   .command("remove")
   .alias("rm")
   .argument("[flag]", "Account Flag")
@@ -93,4 +93,4 @@ commander
     }
   });
 
-commander.parse(process.argv);
+program.parse(process.argv);
