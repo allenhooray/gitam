@@ -1,11 +1,13 @@
-const readline = require("readline");
-const child_process = require("child_process");
-const { getObject } = require("./db");
+import readline from 'readline';
+import child_process, { ExecException } from 'child_process';
+import { getObject } from "./db";
+import { Account } from "./account";
+import { AccountInfo, Obj } from './types'
 
 /**
  * @description 封装 child_process.exec 为 promise
  */
-const execAysnc = (cmd) => {
+const execAysnc = (cmd: string): Promise<{ error: ExecException | null, stdout: string, stderr: string }> => {
   return new Promise((resolve, reject) => {
     child_process.exec(cmd, (error, stdout, stderr) => {
       resolve({ error, stdout: stdout.replace(/[\r\n]/g, ""), stderr });
@@ -13,36 +15,10 @@ const execAysnc = (cmd) => {
   });
 };
 
-class Account {
-  username = "";
-  email = "";
-  flag = "";
-
-  constructor(username, email, flag = "") {
-    this.username = username;
-    this.email = email;
-    this.flag = flag;
-  }
-
-  static isEqual(accountA, accountB) {
-    if (
-      accountA.username === accountB.username &&
-      accountA.email === accountB.email
-    ) {
-      return true;
-    }
-    return false;
-  }
-
-  stringify() {
-    return `${this.flag} | ${this.username} | ${this.email}`;
-  }
-}
-
 /**
  * @description 执行 git 命令获取全局和当前存储库用户配置
  */
-const logCurrentConfig = async () => {
+export const logCurrentConfig = async () => {
   const { stdout: localUserName } = await execAysnc(`git config user.name`);
   const { stdout: localEmail } = await execAysnc(`git config user.email`);
   const { stdout: globalUserName } = await execAysnc(
@@ -73,22 +49,21 @@ const logCurrentConfig = async () => {
  * @description 以表格的形式打印出已保存的账号
  * @param {*} obj
  */
-const listAccounts = async (obj) => {
+export const listAccounts = async (obj?: Obj) => {
   const { accounts } = obj || (await getObject());
-  const arr = [];
-  for (const flag in accounts) {
-    arr.push({
-      flag,
-      ...accounts[flag],
-    });
-  }
+  const arr: {
+    flag: string;
+    username: string;
+    email: string;
+  }[] = Object.entries(accounts).map(([flag, { username, email }]) => ({ flag, username, email }));
+
   console.table(arr);
 };
 
 /**
  * @description 使用一个账号
  */
-const useAnAccount = async (flag, account, isGlobal = false) => {
+export const useAnAccount = async (flag: string, account: AccountInfo, isGlobal = false) => {
   const { username, email } = account;
   child_process.exec(
     `git config ${isGlobal ? "--global" : ""}  user.name "${username}"`
@@ -105,7 +80,7 @@ const useAnAccount = async (flag, account, isGlobal = false) => {
 /**
  * @description 通过命令行交互的方式，在已存储的列表中选择一个账号
  */
-const selectAnAccount = async (obj, isGlobal = false) => {
+export const selectAnAccount = async (obj?: Obj, isGlobal = false) => {
   const _obj = obj || (await getObject());
   const { accounts } = _obj;
 
@@ -119,11 +94,11 @@ const selectAnAccount = async (obj, isGlobal = false) => {
     output: process.stdout,
   });
 
-  rl.question(`Please select a index or flag: `, (input) => {
+  rl.question(`Please select a index or flag: `, (input: string) => {
     rl.close();
     const isIndex = !isNaN(Number(input));
-
-    const flag = isIndex ? Object.keys(accounts)[input] : input;
+    const inputIndex = isIndex ? Number(input) : -1;
+    const flag = isIndex ? Object.keys(accounts)[inputIndex] : input;
     const account = accounts[flag];
 
     if (!account) {
@@ -135,9 +110,3 @@ const selectAnAccount = async (obj, isGlobal = false) => {
   });
 };
 
-module.exports = {
-  logCurrentConfig,
-  listAccounts,
-  useAnAccount,
-  selectAnAccount,
-};

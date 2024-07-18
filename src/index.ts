@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-const { program } = require("commander");
-const package = require("./package.json");
-const { writeFile, clearFile, getObject } = require("./src/db");
-const {
+import { program } from "commander";
+import packageJson from '../package.json';
+import { writeFile, clearFile, getObject } from "./db";
+import {
   logCurrentConfig,
   listAccounts,
   useAnAccount,
   selectAnAccount,
-} = require("./src/actions");
+} from "./actions";
 
 program
-  .version(package.version)
-  .description(package.description)
+  .version(packageJson.version)
+  .description(packageJson.description)
   .action(async () => {
     await logCurrentConfig();
   });
