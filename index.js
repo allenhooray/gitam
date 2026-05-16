@@ -63,7 +63,7 @@ commander
 
     const account = obj.accounts[flag];
     if (account) {
-      useAnAccount(flag, account, global);
+      await useAnAccount(flag, account, global);
     } else {
       console.log(
         "🤔 Not found the flag. You Can run `list` to show the list of accounts."
