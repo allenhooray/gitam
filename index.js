@@ -3,13 +3,17 @@ const commander = require("commander");
 const package = require("./package.json");
 const { writeFile, clearFile, getObject } = require("./src/db");
 const {
+  addAccount,
+  addAccountInteractively,
+  editAccount,
+  listFlags,
   logCurrentConfig,
   listAccounts,
+  printCompletionScript,
+  validateFlag,
   useAnAccount,
   selectAnAccount,
 } = require("./src/actions");
-
-const FLAG_REGEXP = /^[A-Za-z0-9_-]+$/;
 
 const handleError = (error) => {
   process.exitCode = 1;
@@ -21,22 +25,6 @@ const runAction = (action) => async (...args) => {
     await action(...args);
   } catch (error) {
     handleError(error);
-  }
-};
-
-const isBlank = (value) => !String(value || "").trim();
-
-const validateFlag = (flag) => {
-  if (isBlank(flag) || !FLAG_REGEXP.test(flag)) {
-    throw new Error(
-      "Account flag must contain only letters, numbers, underscores, or hyphens."
-    );
-  }
-};
-
-const validateAccountField = (name, value) => {
-  if (isBlank(value)) {
-    throw new Error(`Account ${name} cannot be empty.`);
   }
 };
 
@@ -58,22 +46,30 @@ commander
 commander
   .command("add")
   .description("Add an account.")
-  .argument("<flag>", "Account Flag")
-  .argument("<username>", "Account Username")
-  .argument("<email>", "Account Email")
+  .argument("[flag]", "Account Flag")
+  .argument("[username]", "Account Username")
+  .argument("[email]", "Account Email")
   .action(runAction(async (flag, username, email) => {
-    validateFlag(flag);
-    validateAccountField("username", username);
-    validateAccountField("email", email);
+    const args = [flag, username, email].filter((value) => value !== undefined);
+    if (!args.length) {
+      await addAccountInteractively();
+      return;
+    }
+    if (args.length !== 3) {
+      throw new Error("Please provide flag, username, and email, or run `gam add` interactively.");
+    }
+    await addAccount(flag, username, email);
+  }));
 
-    const obj = await getObject();
-    const exists = Boolean(obj.accounts[flag]);
-    obj.accounts[flag] = {
-      username,
-      email,
-    };
-    await writeFile(obj);
-    console.log(exists ? "♻️ Update success." : "👌 Add success.");
+commander
+  .command("edit")
+  .description("Edit an account.")
+  .argument("<flag>", "Account Flag")
+  .option("--username <username>", "New account username.")
+  .option("--email <email>", "New account email.")
+  .option("--flag <flag>", "New account flag.")
+  .action(runAction(async (flag, options) => {
+    await editAccount(flag, options);
   }));
 
 commander
@@ -133,6 +129,20 @@ commander
     } else {
       console.log("🤔 Not found the flag.");
     }
+  }));
+
+commander
+  .command("completion")
+  .description("Print shell completion script.")
+  .argument("<shell>", "Shell name: zsh or bash")
+  .action(runAction(async (shell) => {
+    printCompletionScript(shell);
+  }));
+
+commander
+  .command("__flags", { hidden: true })
+  .action(runAction(async () => {
+    await listFlags();
   }));
 
 commander.parse(process.argv);
