@@ -854,6 +854,11 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(script, /compdef _gitam gam gitam/);
   assert.match(script, /include:Configure a global git includeIf rule/);
   assert.match(script, /edit:Edit an account/);
+  assert.match(script, /--condition:includeIf condition/);
+  assert.match(script, /--gitdir-i:Configure includeIf\.gitdir\/i/);
+  assert.match(script, /--username:New account username/);
+  assert.match(script, /--global:Set global config/);
+  assert.match(script, /--all:Remove all accounts/);
   assert.match(script, /__flags/);
 
   result = await runCli(["completion"], {
@@ -866,6 +871,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   script = await fs.readFile(path.join(home, ".gam-completion.bash"), "utf8");
   assert.match(script, /complete -F _gitam_completion gam/);
   assert.match(script, /commands="list ls add use u include edit remove rm completion"/);
+  assert.match(script, /--condition --gitdir --gitdir-i --onbranch/);
+  assert.match(script, /--username --email --flag/);
+  assert.match(script, /-g --global/);
+  assert.match(script, /-a --all/);
   assert.match(script, /__flags/);
 
   result = await runCli(["completion"], {
@@ -877,6 +886,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(result.stdout, /source ~\/\.gam-completion\.fish/);
   script = await fs.readFile(path.join(home, ".gam-completion.fish"), "utf8");
   assert.match(script, /complete -c gam/);
+  assert.match(script, /__fish_seen_subcommand_from include" -l gitdir-i -r/);
+  assert.match(script, /__fish_seen_subcommand_from edit" -l username -r/);
+  assert.match(script, /__fish_seen_subcommand_from use" -l global/);
+  assert.match(script, /__fish_seen_subcommand_from remove" -l all/);
   assert.match(script, /__gitam_accounts/);
 
   result = await runCli(["completion"], {
@@ -888,6 +901,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(result.stdout, /\. "\$HOME\/\.gam-completion\.ps1"/);
   script = await fs.readFile(path.join(home, ".gam-completion.ps1"), "utf8");
   assert.match(script, /Register-ArgumentCompleter/);
+  assert.match(script, /include = '--condition --gitdir --gitdir-i --onbranch'/);
+  assert.match(script, /edit = '--username --email --flag'/);
+  assert.match(script, /use = '-g --global'/);
+  assert.match(script, /remove = '-a --all'/);
   assert.match(script, /gitam/);
 
   result = await runCli(["__flags"], { home });
