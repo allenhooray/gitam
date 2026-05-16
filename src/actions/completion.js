@@ -29,6 +29,7 @@ _gitam() {
     'add:Add an account'
     'use:Use an account'
     'u:Use an account'
+    'include:Configure a global git includeIf rule'
     'edit:Edit an account'
     'remove:Remove an account'
     'rm:Remove an account'
@@ -42,7 +43,7 @@ _gitam() {
   fi
 
   case "$words[2]" in
-    use|u|remove|rm|edit)
+    use|u|include|remove|rm|edit)
       _describe 'account flag' flags
       ;;
     completion)
@@ -60,7 +61,7 @@ compdef _gitam gam gitam
   local cur cmd flags commands
   cur="\${COMP_WORDS[COMP_CWORD]}"
   cmd="\${COMP_WORDS[1]}"
-  commands="list ls add use u edit remove rm completion"
+  commands="list ls add use u include edit remove rm completion"
   flags="$("\${COMP_WORDS[0]}" __flags 2>/dev/null)"
 
   if [[ \${COMP_CWORD} -eq 1 ]]; then
@@ -69,7 +70,7 @@ compdef _gitam gam gitam
   fi
 
   case "\${cmd}" in
-    use|u|remove|rm|edit)
+    use|u|include|remove|rm|edit)
       COMPREPLY=( $(compgen -W "\${flags}" -- "\${cur}") )
       ;;
     completion)

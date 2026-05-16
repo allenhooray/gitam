@@ -18,6 +18,7 @@ GAM keeps your Git identities close at hand. Save the accounts you use often, se
 - See whether an account is currently used by the local repository, global Git config, or both.
 - Confirm before changing the global Git user, so a local switch does not accidentally become a machine-wide change.
 - Add, edit, remove, and use accounts from either direct commands or interactive prompts.
+- Configure Git `includeIf` rules from either direct commands or interactive prompts.
 - Generate zsh or bash completion for faster account switching.
 
 ## Installation
@@ -100,6 +101,25 @@ gam use -g github
 
 Run `gam use` without a flag to pick from saved accounts interactively.
 
+### Configure includeIf
+
+Configure a global `includeIf` rule for an account:
+
+```shell
+gam include github --gitdir ~/work/
+gam include github --gitdir-i ~/Work/
+gam include github --onbranch main
+gam include github --condition "gitdir:~/work/"
+```
+
+Run without arguments to pick an account and condition interactively:
+
+```shell
+gam include
+```
+
+`gam include` writes the account to a dedicated config file under `~/.gitam/includes/`, then writes `includeIf.<condition>.path` to the global Git config.
+
 ### List Accounts
 
 ```shell
@@ -144,7 +164,7 @@ gam completion bash > ~/.gam-completion.bash
 echo 'source ~/.gam-completion.bash' >> ~/.bashrc
 ```
 
-Completion scripts complete command names and saved account flags for `use`, `edit`, and `remove`.
+Completion scripts complete command names and saved account flags for `use`, `include`, `edit`, and `remove`.
 
 ## Examples
 
@@ -155,6 +175,7 @@ gam edit github --email bob@new-email.com
 gam add gitlab tom tom@email.com
 gam use
 gam use -g
+gam include github --gitdir ~/work/
 gam completion zsh > ~/.gam-completion.zsh
 echo 'source ~/.gam-completion.zsh' >> ~/.zshrc
 ```

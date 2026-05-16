@@ -6,6 +6,8 @@ const {
   addAccount,
   addAccountInteractively,
   editAccount,
+  includeAccount,
+  includeAccountInteractively,
   listFlags,
   logCurrentConfig,
   listAccounts,
@@ -104,6 +106,22 @@ commander
         "🤔 Not found the flag. You Can run `list` to show the list of accounts."
       );
     }
+  }));
+
+commander
+  .command("include")
+  .description("Configure a global git includeIf rule for an account.")
+  .argument("[flag]", "Account Flag")
+  .option("--condition <condition>", "includeIf condition: gitdir:<path>, gitdir/i:<path>, or onbranch:<pattern>.")
+  .option("--gitdir <path>", "Configure includeIf.gitdir:<path>.")
+  .option("--gitdir-i <path>", "Configure includeIf.gitdir/i:<path>.")
+  .option("--onbranch <pattern>", "Configure includeIf.onbranch:<pattern>.")
+  .action(runAction(async (flag, options) => {
+    if (!flag) {
+      await includeAccountInteractively();
+      return;
+    }
+    await includeAccount(flag, options);
   }));
 
 commander

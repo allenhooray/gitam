@@ -67,6 +67,29 @@ const setGitConfig = async (key, value, isGlobal = false) => {
 };
 
 /**
+ * Writes a git config value to a specific config file.
+ *
+ * @param {string} filePath - Git config file path.
+ * @param {string} key - Git config key.
+ * @param {string} value - Config value.
+ * @returns {Promise<void>}
+ */
+const setGitConfigInFile = async (filePath, key, value) => {
+  await execGit(["config", "--file", filePath, key, value]);
+};
+
+/**
+ * Writes a global includeIf rule pointing to a config file.
+ *
+ * @param {string} condition - includeIf condition, such as gitdir:~/work/.
+ * @param {string} includePath - Config file path to include.
+ * @returns {Promise<void>}
+ */
+const setGlobalIncludeIf = async (condition, includePath) => {
+  await setGitConfig(`includeIf.${condition}.path`, includePath, true);
+};
+
+/**
  * Reads the current local and global git account configuration.
  *
  * @returns {Promise<{local: Account, global: Account}>} Current git accounts.
@@ -87,5 +110,7 @@ module.exports = {
   execGit,
   getCurrentAccounts,
   getGitConfig,
+  setGitConfigInFile,
+  setGlobalIncludeIf,
   setGitConfig,
 };

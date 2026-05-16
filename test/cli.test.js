@@ -526,6 +526,170 @@ test("list marks local, global, and shared account status", async () => {
   assert.match(result.stdout, /local,global/);
 });
 
+test("include configures git includeIf for an account", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const includePath = path.join(home, ".gitam", "includes", "github.gitconfig");
+  const result = await runCli(["include", "github", "--gitdir", "~/work"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    env: {
+      GITAM_MOCK_GIT_LOG: mockGit.logPath,
+    },
+  });
+  const gitCalls = await readGitLog(mockGit.logPath);
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /includeIf success/);
+  assert.match(result.stdout, /includeIf\.gitdir:~\/work\/\.path/);
+  assert.ok(
+    hasGitCall(gitCalls, [
+      "config",
+      "--file",
+      includePath,
+      "user.name",
+      "bob",
+    ])
+  );
+  assert.ok(
+    hasGitCall(gitCalls, [
+      "config",
+      "--file",
+      includePath,
+      "user.email",
+      "bob@example.com",
+    ])
+  );
+  assert.ok(
+    hasGitCall(gitCalls, [
+      "config",
+      "--global",
+      "includeIf.gitdir:~/work/.path",
+      includePath,
+    ])
+  );
+});
+
+test("include supports explicit condition and validates option count", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const includePath = path.join(home, ".gitam", "includes", "github.gitconfig");
+  let result = await runCli(
+    ["include", "github", "--condition", "onbranch:release/*"],
+    {
+      home,
+      pathPrefix: mockGit.binDir,
+      env: {
+        GITAM_MOCK_GIT_LOG: mockGit.logPath,
+      },
+    }
+  );
+  let gitCalls = await readGitLog(mockGit.logPath);
+
+  assert.equal(result.code, 0);
+  assert.ok(
+    hasGitCall(gitCalls, [
+      "config",
+      "--global",
+      "includeIf.onbranch:release/*.path",
+      includePath,
+    ])
+  );
+
+  result = await runCli(
+    ["include", "github", "--gitdir", "~/work", "--onbranch", "main"],
+    {
+      home,
+      pathPrefix: mockGit.binDir,
+    }
+  );
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /exactly one/);
+});
+
+test("interactive include handles invalid input and confirmation", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+        gitlab: {
+          username: "tom",
+          email: "tom@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const includePath = path.join(home, ".gitam", "includes", "gitlab.gitconfig");
+  const result = await runCli(["include"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    input: ["\n", "9\n", "1\n", "bad\n", "2\n", "main\n", "y\n"],
+    inputDelayMs: 400,
+    env: {
+      GITAM_FORCE_INTERACTIVE: "1",
+      GITAM_MOCK_GIT_LOG: mockGit.logPath,
+    },
+  });
+  const gitCalls = await readGitLog(mockGit.logPath);
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Please enter an index or flag/);
+  assert.match(result.stdout, /No this index or flag/);
+  assert.match(result.stdout, /No this condition type/);
+  assert.match(result.stdout, /includeIf success/);
+  assert.ok(
+    hasGitCall(gitCalls, [
+      "config",
+      "--global",
+      "includeIf.onbranch:main.path",
+      includePath,
+    ])
+  );
+});
+
+test("non-interactive include requires options", async () => {
+  const home = await makeTempDir();
+  const result = await runCli(["include"], { home });
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /Interactive include requires an interactive terminal/);
+});
+
 test("non-interactive global use fails before writing git config", async () => {
   const home = await makeTempDir();
   const mockGit = await makeMockGit(home);
@@ -682,13 +846,14 @@ test("completion scripts include commands and dynamic flag helper", async () => 
   let result = await runCli(["completion", "zsh"], { home });
   assert.equal(result.code, 0);
   assert.match(result.stdout, /compdef _gitam gam gitam/);
+  assert.match(result.stdout, /include:Configure a global git includeIf rule/);
   assert.match(result.stdout, /edit:Edit an account/);
   assert.match(result.stdout, /__flags/);
 
   result = await runCli(["completion", "bash"], { home });
   assert.equal(result.code, 0);
   assert.match(result.stdout, /complete -F _gitam_completion gam/);
-  assert.match(result.stdout, /commands="list ls add use u edit remove rm completion"/);
+  assert.match(result.stdout, /commands="list ls add use u include edit remove rm completion"/);
   assert.match(result.stdout, /__flags/);
 
   result = await runCli(["__flags"], { home });

@@ -1,7 +1,14 @@
 const readline = require("readline");
+const fs = require("fs").promises;
+const path = require("path");
 const { getObject, writeFile } = require("../db");
 const { Account, formatAccount } = require("./account");
-const { getCurrentAccounts, setGitConfig } = require("./git-config");
+const {
+  getCurrentAccounts,
+  setGitConfig,
+  setGitConfigInFile,
+  setGlobalIncludeIf,
+} = require("./git-config");
 const {
   askQuestion,
   confirmQuestion,
@@ -10,11 +17,27 @@ const {
 } = require("./prompt");
 const {
   normalizeAccountInput,
+  normalizeGitdirValue,
+  normalizeIncludeIfOptions,
   trimValue,
   validateAccountField,
   validateEmail,
   validateFlag,
+  validateIncludeIfCondition,
 } = require("./validation");
+
+const INCLUDE_CONDITION_TYPES = ["gitdir", "gitdir/i", "onbranch"];
+
+/**
+ * Gets the config file path used for an account includeIf target.
+ *
+ * @param {string} flag - Account flag.
+ * @returns {string} Absolute include config path.
+ */
+const getIncludeFilePath = (flag) => {
+  const homePath = process.env.HOME || process.env.USERPROFILE;
+  return path.join(homePath, ".gitam", "includes", `${flag}.gitconfig`);
+};
 
 /**
  * Prints the current global and repository git account configuration.
@@ -318,6 +341,158 @@ const useAnAccount = async (flag, account, isGlobal = false) => {
 };
 
 /**
+ * Writes an account config file and points a global includeIf rule at it.
+ *
+ * @param {string} flag - Selected account flag.
+ * @param {{username: string, email: string}} account - Selected account data.
+ * @param {string} condition - includeIf condition.
+ * @returns {Promise<void>}
+ */
+const includeAnAccount = async (flag, account, condition) => {
+  validateFlag(flag);
+  validateIncludeIfCondition(condition);
+
+  const includePath = getIncludeFilePath(flag);
+  await fs.mkdir(path.dirname(includePath), { recursive: true });
+  await setGitConfigInFile(includePath, "user.name", account.username);
+  await setGitConfigInFile(includePath, "user.email", account.email);
+  await setGlobalIncludeIf(condition, includePath);
+
+  console.log(`👌 includeIf success.`);
+  console.log(`[Account]`, formatAccount(new Account(account.username, account.email, flag)));
+  console.log(`[Rule] includeIf.${condition}.path`);
+  console.log(`[File] ${includePath}`);
+};
+
+/**
+ * Applies an account to a global includeIf rule from command options.
+ *
+ * @param {*} flag - Account flag.
+ * @param {{condition?: string, gitdir?: string, gitdirI?: string, onbranch?: string}} options - CLI options.
+ * @returns {Promise<void>}
+ */
+const includeAccount = async (flag, options) => {
+  const currentFlag = trimValue(flag);
+  validateFlag(currentFlag);
+  const condition = normalizeIncludeIfOptions(options);
+
+  const obj = await getObject();
+  const account = obj.accounts[currentFlag];
+  if (!account) {
+    throw new Error(`Account flag "${currentFlag}" was not found.`);
+  }
+
+  await includeAnAccount(currentFlag, account, condition);
+};
+
+/**
+ * Prompts for an includeIf condition type and value.
+ *
+ * @param {readline.Interface} rl - Readline interface.
+ * @returns {Promise<string>} Normalized includeIf condition.
+ */
+const promptIncludeIfCondition = async (rl) => {
+  while (true) {
+    console.log("Condition type:");
+    INCLUDE_CONDITION_TYPES.forEach((type, index) => {
+      console.log(`${index} ${type}`);
+    });
+
+    const typeInput = trimValue(await askQuestion(rl, "Please select a condition type: "));
+    const conditionType = /^\d+$/.test(typeInput)
+      ? INCLUDE_CONDITION_TYPES[Number(typeInput)]
+      : typeInput;
+
+    if (!INCLUDE_CONDITION_TYPES.includes(conditionType)) {
+      console.log("❌ No this condition type");
+      continue;
+    }
+
+    const value = trimValue(await askQuestion(rl, "Path or pattern: "));
+    try {
+      const condition =
+        conditionType === "onbranch"
+          ? `onbranch:${value}`
+          : `${conditionType}:${normalizeGitdirValue(value)}`;
+      validateIncludeIfCondition(condition);
+      return condition;
+    } catch (error) {
+      console.log(`❌ ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Prompts the user to select a saved account and creates an includeIf rule.
+ *
+ * @param {{accounts: Record<string, {username: string, email: string}>}} [obj] - Optional loaded database object.
+ * @returns {Promise<void>}
+ */
+const includeAccountInteractively = async (obj) => {
+  if (!isInteractive()) {
+    throw new Error("Interactive include requires an interactive terminal.");
+  }
+
+  const _obj = obj || (await getObject());
+  const { accounts } = _obj;
+
+  if (!Object.keys(accounts).length) {
+    console.log("🤚 No account can be included, please add an account first.");
+    return;
+  }
+
+  await listAccounts(_obj);
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  let selectedFlag;
+  let selectedAccount;
+  let condition;
+  try {
+    while (true) {
+      const input = trimValue(
+        await askQuestion(rl, "Please select an index or flag: ")
+      );
+      if (!input) {
+        console.log("❌ Please enter an index or flag.");
+        continue;
+      }
+
+      const resolvedFlag = resolveAccountFlag(accounts, input);
+      const account = accounts[resolvedFlag];
+
+      if (!account) {
+        console.log("❌ No this index or flag");
+        continue;
+      }
+
+      selectedFlag = resolvedFlag;
+      selectedAccount = account;
+      break;
+    }
+
+    condition = await promptIncludeIfCondition(rl);
+    console.log(`[Account]`, formatAccount(new Account(
+      selectedAccount.username,
+      selectedAccount.email,
+      selectedFlag
+    )));
+    console.log(`[Rule] includeIf.${condition}.path`);
+    if (!(await confirmQuestion("Apply includeIf rule?", rl))) {
+      console.log("👌 Include canceled.");
+      return;
+    }
+  } finally {
+    rl.close();
+  }
+
+  await includeAnAccount(selectedFlag, selectedAccount, condition);
+};
+
+/**
  * Prompts the user to select a saved account and applies it.
  *
  * @param {{accounts: Record<string, {username: string, email: string}>}} [obj] - Optional loaded database object.
@@ -373,6 +548,9 @@ module.exports = {
   addAccount,
   addAccountInteractively,
   editAccount,
+  includeAccount,
+  includeAccountInteractively,
+  includeAnAccount,
   listAccounts,
   logCurrentConfig,
   removeAccount,
