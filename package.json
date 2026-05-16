@@ -19,11 +19,14 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node --check index.js && node --check src/actions.js && node --check src/db.js && node --check test/cli.test.js",
+    "pack:dry-run": "node scripts/pack-dry-run.js"
   },
   "files": [
     "src/*",
-    "docs/*"
+    "docs/*",
+    "scripts/*"
   ],
   "license": "MIT",
   "dependencies": {
