@@ -85,6 +85,16 @@ gam list
 
 列表会显示 `status` 列，用 `local`、`global` 或 `local,global` 标记当前正在使用的账号。
 
+### 删除账号
+
+```shell
+gam remove github
+gam remove 1
+gam remove
+```
+
+可以通过 flag 或列表 index 删除账号。只输入 `gam remove` 时，会先显示账号列表，再按提示输入 index 或 flag。
+
 ### Shell 补全
 
 ```shell

@@ -165,14 +165,113 @@ test("adds, lists, and removes accounts", async () => {
   assert.match(result.stdout, /github/);
   assert.match(result.stdout, /bob@example\.com/);
 
-  result = await runCli(["remove"], { home });
-  assert.equal(result.code, 1);
-  assert.match(result.stderr, /provide an account flag/);
-
   result = await runCli(["remove", "github"], { home });
   assert.equal(result.code, 0);
   assert.match(result.stdout, /Remove success/);
   assert.deepEqual(await readDb(home), { accounts: {} });
+});
+
+test("removes accounts by list index", async () => {
+  const home = await makeTempDir();
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+        gitlab: {
+          username: "tom",
+          email: "tom@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  let result = await runCli(["remove", "1"], { home });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Remove success/);
+  assert.deepEqual(await readDb(home), {
+    accounts: {
+      github: {
+        username: "bob",
+        email: "bob@example.com",
+      },
+    },
+  });
+
+  result = await runCli(["remove", "3"], { home });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Not found the flag or index/);
+  assert.deepEqual(await readDb(home), {
+    accounts: {
+      github: {
+        username: "bob",
+        email: "bob@example.com",
+      },
+    },
+  });
+});
+
+test("interactive remove handles blank, invalid, and index input", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+        gitlab: {
+          username: "tom",
+          email: "tom@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const result = await runCli(["remove"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    input: ["\n", "9\n", "1\n"],
+    inputDelayMs: 400,
+    env: {
+      GITAM_FORCE_INTERACTIVE: "1",
+    },
+  });
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Please select an index or flag to remove/);
+  assert.match(result.stdout, /Please enter an index or flag/);
+  assert.match(result.stdout, /No this index or flag/);
+  assert.match(result.stdout, /Remove success/);
+  assert.deepEqual(await readDb(home), {
+    accounts: {
+      github: {
+        username: "bob",
+        email: "bob@example.com",
+      },
+    },
+  });
+});
+
+test("interactive remove reports empty account list", async () => {
+  const home = await makeTempDir();
+
+  const result = await runCli(["remove"], {
+    home,
+    env: {
+      GITAM_FORCE_INTERACTIVE: "1",
+    },
+  });
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /No account can be removed/);
 });
 
 test("rejects invalid account input", async () => {

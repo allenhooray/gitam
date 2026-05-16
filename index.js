@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const commander = require("commander");
 const package = require("./package.json");
-const { writeFile, clearFile, getObject } = require("./src/db");
+const { clearFile, getObject } = require("./src/db");
 const {
   addAccount,
   addAccountInteractively,
@@ -10,6 +10,8 @@ const {
   logCurrentConfig,
   listAccounts,
   printCompletionScript,
+  removeAccount,
+  removeAccountInteractively,
   validateFlag,
   useAnAccount,
   selectAnAccount,
@@ -107,7 +109,7 @@ commander
 commander
   .command("remove")
   .alias("rm")
-  .argument("[flag]", "Account Flag")
+  .argument("[flag]", "Account Flag or list index")
   .option("-a, --all", "Remove all accounts (clear the db file).")
   .description("Remove an account.")
   .action(runAction(async (flag, { all }) => {
@@ -116,18 +118,18 @@ commander
       console.log("🧹 Clear done.");
       return;
     }
-    if (!flag) {
-      throw new Error("Please provide an account flag or use --all.");
-    }
-    validateFlag(flag);
 
     const obj = await getObject();
-    if (obj.accounts[flag]) {
-      delete obj.accounts[flag];
-      await writeFile(obj);
-      console.log("👋 Remove success.");
-    } else {
-      console.log("🤔 Not found the flag.");
+    if (!flag) {
+      if (!Object.keys(obj.accounts).length) {
+        return removeAccountInteractively(obj);
+      }
+      await listAccounts(obj);
+      return removeAccountInteractively(obj);
+    }
+
+    if (!(await removeAccount(obj, flag))) {
+      console.log("🤔 Not found the flag or index.");
     }
   }));
 

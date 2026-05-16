@@ -210,6 +210,14 @@ const listAccounts = async (obj) => {
   console.table(rows);
 };
 
+const resolveAccountFlag = (accounts, input) => {
+  const value = trimValue(input);
+  if (/^\d+$/.test(value)) {
+    return Object.keys(accounts)[Number(value)];
+  }
+  return value;
+};
+
 const confirmOverwriteFlag = async (flag) => {
   if (!isInteractive()) {
     throw new Error(
@@ -318,6 +326,61 @@ const editAccount = async (flag, options) => {
   console.log("👌 Edit success.");
 };
 
+const removeAccount = async (obj, input) => {
+  const resolvedFlag = resolveAccountFlag(obj.accounts, input);
+  if (resolvedFlag) {
+    validateFlag(resolvedFlag);
+  }
+
+  if (resolvedFlag && obj.accounts[resolvedFlag]) {
+    delete obj.accounts[resolvedFlag];
+    await writeFile(obj);
+    console.log("👋 Remove success.");
+    return true;
+  }
+
+  return false;
+};
+
+const removeAccountInteractively = async (obj) => {
+  if (!isInteractive()) {
+    throw new Error("Interactive remove requires an interactive terminal.");
+  }
+
+  const _obj = obj || (await getObject());
+  const { accounts } = _obj;
+
+  if (!Object.keys(accounts).length) {
+    console.log("🤚 No account can be removed, please add an account first.");
+    return;
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    while (true) {
+      const input = trimValue(
+        await askQuestion(rl, "Please select an index or flag to remove: ")
+      );
+      if (!input) {
+        console.log("❌ Please enter an index or flag.");
+        continue;
+      }
+
+      if (await removeAccount(_obj, input)) {
+        return;
+      }
+
+      console.log("❌ No this index or flag");
+    }
+  } finally {
+    rl.close();
+  }
+};
+
 const formatAccount = (account) => {
   return `${account.flag} | ${account.username} | ${account.email}`;
 };
@@ -371,7 +434,6 @@ const selectAnAccount = async (obj, isGlobal = false) => {
   let selectedFlag;
   let selectedAccount;
   try {
-    const entries = Object.entries(accounts);
     while (true) {
       const input = trimValue(
         await askQuestion(rl, `Please select an index or flag: `)
@@ -381,8 +443,7 @@ const selectAnAccount = async (obj, isGlobal = false) => {
         continue;
       }
 
-      const isIndex = /^\d+$/.test(input);
-      const resolvedFlag = isIndex ? entries[Number(input)]?.[0] : input;
+      const resolvedFlag = resolveAccountFlag(accounts, input);
       const account = accounts[resolvedFlag];
 
       if (!account) {
@@ -488,6 +549,9 @@ module.exports = {
   listAccounts,
   normalizeAccountInput,
   printCompletionScript,
+  removeAccount,
+  removeAccountInteractively,
+  resolveAccountFlag,
   validateFlag,
   useAnAccount,
   selectAnAccount,

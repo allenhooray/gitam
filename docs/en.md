@@ -85,6 +85,16 @@ gam list
 
 The table includes a `status` column with `local`, `global`, or `local,global` for accounts currently in use.
 
+### Remove an account
+
+```shell
+gam remove github
+gam remove 1
+gam remove
+```
+
+Remove an account by flag or list index. Run `gam remove` without arguments to show the account list and choose an index or flag interactively.
+
 ### Shell completion
 
 ```shell
