@@ -7,6 +7,7 @@ const { trimValue } = require("./validation");
  * @returns {boolean} True when stdin is interactive or forced by tests.
  */
 const isInteractive = () =>
+  !process.argv.includes("--no-interactive") &&
   Boolean(process.stdin.isTTY || process.env.GITAM_FORCE_INTERACTIVE);
 
 /**

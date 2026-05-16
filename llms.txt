@@ -1,0 +1,24 @@
+# gitam
+
+gitam is a command-line tool for switching and managing Git identities (`user.name` and `user.email`).
+
+Primary commands for AI agents and scripts:
+
+- `gam --json`: print current local and global Git identities as JSON.
+- `gam list --json`: print saved accounts and active local/global status as JSON.
+- `gam __flags --json`: print saved account flags as JSON.
+- `gam add <flag> <username> <email>`: save a Git identity.
+- `gam add <flag> <username> <email> --force`: overwrite an existing saved flag.
+- `gam use <flag>`: set the current repository's Git identity.
+- `gam use -g <flag> --yes`: set the global Git identity without an interactive confirmation.
+- `gam include <flag> --gitdir <path>`: configure a global Git `includeIf.gitdir` rule.
+- `gam include <flag> --gitdir-i <path>`: configure a case-insensitive global Git `includeIf.gitdir/i` rule.
+- `gam include <flag> --onbranch <pattern>`: configure a global Git `includeIf.onbranch` rule.
+
+Safety guidance:
+
+- Use local repository switching by default: `gam use <flag>`.
+- Only use `gam use -g <flag> --yes` when the user explicitly wants to change the global Git identity.
+- Use `--no-interactive` in automation when prompts should fail instead of blocking.
+- Use `--force` only when overwriting an existing account flag is intentional.
+- Read state before mutating it with `gam --json` and `gam list --json`.

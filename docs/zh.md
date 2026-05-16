@@ -7,9 +7,9 @@
   <a href="../README.md">English</a>
 </p>
 
-# GAM - Git 账号管理器
+# gitam
 
-GAM 帮你把常用 Git 身份放在手边。你可以保存多个账号，查看当前正在使用哪个账号，并用一条短命令切换当前仓库或全局 Git 用户。
+gitam 是一个用于切换 Git `user.name` 和 `user.email` 的小型 CLI。需要为工作、个人、客户或开源仓库使用不同 Git 身份时，可以用 `gam` 或 `gitam` 快速管理和切换。
 
 ## 为什么用 GAM
 
@@ -55,6 +55,23 @@ gam -h
 
 文档里的 `gam` 都可以替换为 `gitam`。推荐优先使用更短的 `gam`，如果你的设备上 `gam` 已被其他程序占用，可以改用 `gitam`。
 
+## AI Agent 与脚本
+
+自动化场景推荐使用显式的非交互命令和 JSON 输出：
+
+```shell
+gam --json
+gam list --json
+gam __flags --json
+gam add github bob bob@email.com
+gam add github bob bob@email.com --force
+gam use github
+gam use -g github --yes
+gam include github --gitdir ~/work/
+```
+
+默认优先切换当前仓库账号。只有当用户明确要求修改全局 Git 身份时，才使用 `gam use -g <flag> --yes`。
+
 ## 命令
 
 ### 添加账号
@@ -72,6 +89,12 @@ gam add
 ```
 
 当 flag 已存在时，GAM 会询问是否覆盖。非交互环境中不会自动覆盖，请使用新的 flag 或 `gam edit`。
+
+脚本中可以使用 `--force` 覆盖已有 flag：
+
+```shell
+gam add github bob bob@email.com --force
+```
 
 ### 编辑账号
 
@@ -99,6 +122,12 @@ gam use -g github
 
 `gam use <flag>` 写入当前仓库配置。`gam use -g <flag>` 写入全局 Git 配置，执行前会显示当前全局账号和目标账号，并要求确认。
 
+非交互脚本中可以用 `--yes` 确认全局切换：
+
+```shell
+gam use -g github --yes
+```
+
 只输入 `gam use` 时，可以从已保存账号中交互式选择。
 
 ### 配置 includeIf
@@ -124,9 +153,12 @@ gam include
 
 ```shell
 gam list
+gam list --json
 ```
 
 列表会显示 `status` 列，用 `local`、`global` 或 `local,global` 标记当前正在使用的账号。
+
+运行 `gam --json` 可以用 JSON 查看当前 local 和 global Git 身份。
 
 ### 删除账号
 

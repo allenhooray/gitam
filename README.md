@@ -7,9 +7,9 @@
   <a href="./docs/zh.md">中文</a>
 </p>
 
-# GAM - Git Account Manager
+# gitam
 
-GAM keeps your Git identities close at hand. Save the accounts you use often, see which one is active, and switch the current repository or global Git user from one short command.
+gitam is a small CLI for switching Git `user.name` and `user.email` between multiple identities. Use `gam` or `gitam` when you need separate Git identities for work, personal, client, or open-source repositories.
 
 ## Why GAM
 
@@ -55,6 +55,23 @@ gam -h
 
 You can also use `gitam` anywhere `gam` is shown. `gam` is shorter and recommended, while `gitam` is useful if another program already owns the `gam` command on your machine.
 
+## AI Agents and Scripts
+
+For automation, prefer explicit non-interactive commands and JSON output:
+
+```shell
+gam --json
+gam list --json
+gam __flags --json
+gam add github bob bob@email.com
+gam add github bob bob@email.com --force
+gam use github
+gam use -g github --yes
+gam include github --gitdir ~/work/
+```
+
+Use local repository switches by default. Only run `gam use -g <flag> --yes` when the user explicitly wants to change the global Git identity.
+
 ## Commands
 
 ### Add an Account
@@ -72,6 +89,12 @@ gam add
 ```
 
 When the flag already exists, GAM asks whether to overwrite it. In non-interactive environments, GAM will not overwrite automatically; choose a new flag or use `gam edit`.
+
+Use `--force` to overwrite an existing flag in scripts:
+
+```shell
+gam add github bob bob@email.com --force
+```
 
 ### Edit an Account
 
@@ -99,6 +122,12 @@ gam use -g github
 
 `gam use <flag>` writes to the current repository. `gam use -g <flag>` writes to the global Git config, shows the current and target global account, and asks for confirmation before writing.
 
+Use `--yes` to confirm a global switch in a non-interactive script:
+
+```shell
+gam use -g github --yes
+```
+
 Run `gam use` without a flag to pick from saved accounts interactively.
 
 ### Configure includeIf
@@ -124,9 +153,12 @@ gam include
 
 ```shell
 gam list
+gam list --json
 ```
 
 The table includes a `status` column with `local`, `global`, or `local,global` for accounts currently in use.
+
+Run `gam --json` to inspect the current local and global Git identities as JSON.
 
 ### Remove an Account
 
