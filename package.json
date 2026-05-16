@@ -18,6 +18,9 @@
     "gitam": "index.js"
   },
   "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "files": [
     "src/*",
     "docs/*"
