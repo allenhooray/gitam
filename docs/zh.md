@@ -150,19 +150,13 @@ gam remove
 
 ### Shell 补全
 
-生成 zsh 补全：
+为当前 shell 生成补全：
 
 ```shell
-gam completion zsh > ~/.gam-completion.zsh
-echo 'source ~/.gam-completion.zsh' >> ~/.zshrc
+gam completion
 ```
 
-生成 bash 补全：
-
-```shell
-gam completion bash > ~/.gam-completion.bash
-echo 'source ~/.gam-completion.bash' >> ~/.bashrc
-```
+`gam completion` 会自动判断当前 shell，写入对应的补全文件，并提示需要添加到 rc 文件的配置行。支持 zsh、bash、fish 和 PowerShell。
 
 补全脚本会补全命令名，并为 `use`、`include`、`edit`、`remove` 补全已保存的账号 flag。
 
@@ -176,6 +170,5 @@ gam add gitlab tom tom@email.com
 gam use
 gam use -g
 gam include github --gitdir ~/work/
-gam completion zsh > ~/.gam-completion.zsh
-echo 'source ~/.gam-completion.zsh' >> ~/.zshrc
+gam completion
 ```

@@ -11,7 +11,7 @@ const {
   listFlags,
   logCurrentConfig,
   listAccounts,
-  printCompletionScript,
+  generateCompletionScript,
   removeAccount,
   removeAccountInteractively,
   validateFlag,
@@ -153,10 +153,10 @@ commander
 
 commander
   .command("completion")
-  .description("Print shell completion script.")
-  .argument("<shell>", "Shell name: zsh or bash")
+  .description("Generate shell completion script.")
+  .argument("[shell]", "Optional shell name: zsh, bash, fish, pwsh, or powershell")
   .action(runAction(async (shell) => {
-    printCompletionScript(shell);
+    await generateCompletionScript(shell);
   }));
 
 commander

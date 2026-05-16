@@ -19,7 +19,7 @@ GAM keeps your Git identities close at hand. Save the accounts you use often, se
 - Confirm before changing the global Git user, so a local switch does not accidentally become a machine-wide change.
 - Add, edit, remove, and use accounts from either direct commands or interactive prompts.
 - Configure Git `includeIf` rules from either direct commands or interactive prompts.
-- Generate zsh or bash completion for faster account switching.
+- Generate shell completion for faster account switching.
 
 ## Installation
 
@@ -150,19 +150,13 @@ gam remove
 
 ### Shell Completion
 
-Generate zsh completion:
+Generate completion for your current shell:
 
 ```shell
-gam completion zsh > ~/.gam-completion.zsh
-echo 'source ~/.gam-completion.zsh' >> ~/.zshrc
+gam completion
 ```
 
-Generate bash completion:
-
-```shell
-gam completion bash > ~/.gam-completion.bash
-echo 'source ~/.gam-completion.bash' >> ~/.bashrc
-```
+`gam completion` detects your shell, writes the matching completion file, and prints the line to add to your shell rc file. Supported shells include zsh, bash, fish, and PowerShell.
 
 Completion scripts complete command names and saved account flags for `use`, `include`, `edit`, and `remove`.
 
@@ -176,6 +170,5 @@ gam add gitlab tom tom@email.com
 gam use
 gam use -g
 gam include github --gitdir ~/work/
-gam completion zsh > ~/.gam-completion.zsh
-echo 'source ~/.gam-completion.zsh' >> ~/.zshrc
+gam completion
 ```

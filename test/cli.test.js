@@ -828,7 +828,7 @@ test("edit flag collision asks before overwriting", async () => {
   });
 });
 
-test("completion scripts include commands and dynamic flag helper", async () => {
+test("completion command detects shell, writes script, and prints rc instructions", async () => {
   const home = await makeTempDir();
   await fs.writeFile(
     path.join(home, ".gam.json"),
@@ -843,18 +843,52 @@ test("completion scripts include commands and dynamic flag helper", async () => 
     "utf8"
   );
 
-  let result = await runCli(["completion", "zsh"], { home });
+  let result = await runCli(["completion"], {
+    home,
+    env: { GITAM_COMPLETION_SHELL: "zsh" },
+  });
   assert.equal(result.code, 0);
-  assert.match(result.stdout, /compdef _gitam gam gitam/);
-  assert.match(result.stdout, /include:Configure a global git includeIf rule/);
-  assert.match(result.stdout, /edit:Edit an account/);
-  assert.match(result.stdout, /__flags/);
+  assert.match(result.stdout, /Generated zsh completion file:/);
+  assert.match(result.stdout, /source ~\/\.gam-completion\.zsh/);
+  let script = await fs.readFile(path.join(home, ".gam-completion.zsh"), "utf8");
+  assert.match(script, /compdef _gitam gam gitam/);
+  assert.match(script, /include:Configure a global git includeIf rule/);
+  assert.match(script, /edit:Edit an account/);
+  assert.match(script, /__flags/);
 
-  result = await runCli(["completion", "bash"], { home });
+  result = await runCli(["completion"], {
+    home,
+    env: { GITAM_COMPLETION_SHELL: "/bin/bash" },
+  });
   assert.equal(result.code, 0);
-  assert.match(result.stdout, /complete -F _gitam_completion gam/);
-  assert.match(result.stdout, /commands="list ls add use u include edit remove rm completion"/);
-  assert.match(result.stdout, /__flags/);
+  assert.match(result.stdout, /Generated bash completion file:/);
+  assert.match(result.stdout, /source ~\/\.gam-completion\.bash/);
+  script = await fs.readFile(path.join(home, ".gam-completion.bash"), "utf8");
+  assert.match(script, /complete -F _gitam_completion gam/);
+  assert.match(script, /commands="list ls add use u include edit remove rm completion"/);
+  assert.match(script, /__flags/);
+
+  result = await runCli(["completion"], {
+    home,
+    env: { GITAM_COMPLETION_SHELL: "fish" },
+  });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Generated fish completion file:/);
+  assert.match(result.stdout, /source ~\/\.gam-completion\.fish/);
+  script = await fs.readFile(path.join(home, ".gam-completion.fish"), "utf8");
+  assert.match(script, /complete -c gam/);
+  assert.match(script, /__gitam_accounts/);
+
+  result = await runCli(["completion"], {
+    home,
+    env: { GITAM_COMPLETION_SHELL: "pwsh" },
+  });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Generated pwsh completion file:/);
+  assert.match(result.stdout, /\. "\$HOME\/\.gam-completion\.ps1"/);
+  script = await fs.readFile(path.join(home, ".gam-completion.ps1"), "utf8");
+  assert.match(script, /Register-ArgumentCompleter/);
+  assert.match(script, /gitam/);
 
   result = await runCli(["__flags"], { home });
   assert.equal(result.code, 0);
