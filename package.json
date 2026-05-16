@@ -20,7 +20,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
-    "check": "node --check index.js && node --check src/actions.js && node --check src/db.js && node --check test/cli.test.js",
+    "check": "node --check index.js && node --check src/actions.js && node --check src/actions/account.js && node --check src/actions/accounts.js && node --check src/actions/completion.js && node --check src/actions/git-config.js && node --check src/actions/prompt.js && node --check src/actions/validation.js && node --check src/db.js && node --check test/cli.test.js",
     "pack:dry-run": "node scripts/pack-dry-run.js"
   },
   "files": [

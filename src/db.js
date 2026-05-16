@@ -10,7 +10,10 @@ const INIT_JSON_DATA = {
 };
 
 /**
- * @description 向 DB 文件中写入数据
+ * Writes data to the account database file atomically.
+ *
+ * @param {{accounts: Record<string, {username: string, email: string}>}} [data] - Database payload.
+ * @returns {Promise<void>}
  */
 const writeFile = async (data = INIT_JSON_DATA) => {
   const tempPath = `${FILE_PATH}.${process.pid}.${Date.now()}.tmp`;
@@ -19,7 +22,9 @@ const writeFile = async (data = INIT_JSON_DATA) => {
 };
 
 /**
- * @description 检查是否存在 DB 文件，不存在则创建
+ * Ensures the account database file exists.
+ *
+ * @returns {Promise<void>}
  */
 const checkFile = async () => {
   try {
@@ -33,7 +38,9 @@ const checkFile = async () => {
 };
 
 /**
- * @description 删除 DB 文件
+ * Deletes the account database file when it exists.
+ *
+ * @returns {Promise<void>}
  */
 const clearFile = async () => {
   try {
@@ -42,7 +49,9 @@ const clearFile = async () => {
 };
 
 /**
- * @description 从 DB 文件中获取数据 object
+ * Reads and parses the account database object.
+ *
+ * @returns {Promise<{accounts: Record<string, {username: string, email: string}>}>} Parsed database object.
  */
 const getObject = async () => {
   await checkFile();
