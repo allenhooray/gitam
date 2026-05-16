@@ -159,7 +159,7 @@ test("adds, lists, and removes accounts", async () => {
     },
   });
   assert.equal(result.code, 0);
-  assert.match(result.stdout, /index/);
+  assert.equal((result.stdout.match(/\bindex\b/g) || []).length, 1);
   assert.match(result.stdout, /status/);
   assert.match(result.stdout, /local/);
   assert.match(result.stdout, /github/);

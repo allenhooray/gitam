@@ -192,7 +192,8 @@ const logCurrentConfig = async () => {
 const listAccounts = async (obj) => {
   const { accounts } = obj || (await getObject());
   const current = await getCurrentAccounts();
-  const arr = Object.entries(accounts).map(([flag, account], index) => {
+  const rows = {};
+  Object.entries(accounts).forEach(([flag, account], index) => {
     const status = [];
     if (Account.isEqual(current.local, account)) {
       status.push("local");
@@ -200,14 +201,13 @@ const listAccounts = async (obj) => {
     if (Account.isEqual(current.global, account)) {
       status.push("global");
     }
-    return {
-      index,
+    rows[index] = {
       flag,
       status: status.join(","),
       ...account,
     };
   });
-  console.table(arr);
+  console.table(rows);
 };
 
 const confirmOverwriteFlag = async (flag) => {
