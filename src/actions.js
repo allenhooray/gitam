@@ -48,6 +48,12 @@ const setGitConfig = async (key, value, isGlobal = false) => {
   await execGit(args);
 };
 
+const askQuestion = (rl, question) => {
+  return new Promise((resolve) => {
+    rl.question(question, resolve);
+  });
+};
+
 class Account {
   username = "";
   email = "";
@@ -106,13 +112,13 @@ const logCurrentConfig = async () => {
  */
 const listAccounts = async (obj) => {
   const { accounts } = obj || (await getObject());
-  const arr = [];
-  for (const flag in accounts) {
-    arr.push({
+  const arr = Object.entries(accounts).map(([flag, account], index) => {
+    return {
+      index,
       flag,
-      ...accounts[flag],
-    });
-  }
+      ...account,
+    };
+  });
   console.table(arr);
 };
 
@@ -151,20 +157,32 @@ const selectAnAccount = async (obj, isGlobal = false) => {
     output: process.stdout,
   });
 
-  rl.question(`Please select a index or flag: `, (input) => {
-    rl.close();
-    const isIndex = !isNaN(Number(input));
+  try {
+    const entries = Object.entries(accounts);
+    while (true) {
+      const input = (
+        await askQuestion(rl, `Please select an index or flag: `)
+      ).trim();
+      if (!input) {
+        console.log("❌ Please enter an index or flag.");
+        continue;
+      }
 
-    const flag = isIndex ? Object.keys(accounts)[input] : input;
-    const account = accounts[flag];
+      const isIndex = /^\d+$/.test(input);
+      const flag = isIndex ? entries[Number(input)]?.[0] : input;
+      const account = accounts[flag];
 
-    if (!account) {
-      console.log("❌ No this index or flag");
-      return selectAnAccount(_obj, isGlobal);
-    } else {
-      return useAnAccount(flag, account, isGlobal);
+      if (!account) {
+        console.log("❌ No this index or flag");
+        continue;
+      }
+
+      await useAnAccount(flag, account, isGlobal);
+      return;
     }
-  });
+  } finally {
+    rl.close();
+  }
 };
 
 module.exports = {
