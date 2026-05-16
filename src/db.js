@@ -3,6 +3,7 @@ const fs = require("fs").promises;
 const FILE_NAME = ".gam.json";
 const HOME_PATH = process.env.HOME || process.env.USERPROFILE;
 const FILE_PATH = `${HOME_PATH}/${FILE_NAME}`;
+const ENCODING = "utf8";
 
 const INIT_JSON_DATA = {
   accounts: {},
@@ -12,7 +13,9 @@ const INIT_JSON_DATA = {
  * @description 向 DB 文件中写入数据
  */
 const writeFile = async (data = INIT_JSON_DATA) => {
-  await fs.writeFile(FILE_PATH, JSON.stringify(data));
+  const tempPath = `${FILE_PATH}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(data, null, 2), ENCODING);
+  await fs.rename(tempPath, FILE_PATH);
 };
 
 /**
@@ -43,7 +46,15 @@ const clearFile = async () => {
  */
 const getObject = async () => {
   await checkFile();
-  const obj = JSON.parse(await fs.readFile(FILE_PATH));
+  let obj;
+  try {
+    obj = JSON.parse(await fs.readFile(FILE_PATH, ENCODING));
+  } catch (error) {
+    const message = `The account database at ${FILE_PATH} is not valid JSON. Please fix or remove the file.`;
+    const parseError = new Error(message);
+    parseError.code = "INVALID_ACCOUNT_DB";
+    throw parseError;
+  }
   if (!obj.accounts) {
     await writeFile();
     return await getObject();

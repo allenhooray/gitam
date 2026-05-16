@@ -3,13 +3,54 @@ const child_process = require("child_process");
 const { getObject } = require("./db");
 
 /**
- * @description 封装 child_process.exec 为 promise
+ * @description Run git with argument arrays so account values never pass through a shell.
  */
-const execAysnc = (cmd) => {
+const execGit = (args, options = {}) => {
   return new Promise((resolve, reject) => {
-    child_process.exec(cmd, (error, stdout, stderr) => {
-      resolve({ error, stdout: stdout.replace(/[\r\n]/g, ""), stderr });
+    child_process.execFile("git", args, (error, stdout, stderr) => {
+      const result = {
+        stdout: stdout.replace(/[\r\n]/g, ""),
+        stderr: stderr.replace(/[\r\n]/g, ""),
+      };
+
+      if (error) {
+        if (options.allowUnset && error.code === 1) {
+          resolve(result);
+          return;
+        }
+
+        error.message = result.stderr || error.message;
+        reject(error);
+        return;
+      }
+
+      resolve(result);
     });
+  });
+};
+
+const getGitConfig = async (key, isGlobal = false) => {
+  const args = ["config"];
+  if (isGlobal) {
+    args.push("--global");
+  }
+  args.push(key);
+  const { stdout } = await execGit(args, { allowUnset: true });
+  return stdout;
+};
+
+const setGitConfig = async (key, value, isGlobal = false) => {
+  const args = ["config"];
+  if (isGlobal) {
+    args.push("--global");
+  }
+  args.push(key, value);
+  await execGit(args);
+};
+
+const askQuestion = (rl, question) => {
+  return new Promise((resolve) => {
+    rl.question(question, resolve);
   });
 };
 
@@ -43,14 +84,10 @@ class Account {
  * @description 执行 git 命令获取全局和当前存储库用户配置
  */
 const logCurrentConfig = async () => {
-  const { stdout: localUserName } = await execAysnc(`git config user.name`);
-  const { stdout: localEmail } = await execAysnc(`git config user.email`);
-  const { stdout: globalUserName } = await execAysnc(
-    `git config --global user.name`
-  );
-  const { stdout: globalEmail } = await execAysnc(
-    `git config --global user.email`
-  );
+  const localUserName = await getGitConfig("user.name");
+  const localEmail = await getGitConfig("user.email");
+  const globalUserName = await getGitConfig("user.name", true);
+  const globalEmail = await getGitConfig("user.email", true);
 
   const localAccount = new Account(localUserName, localEmail, "-");
   const globalAccount = new Account(globalUserName, globalEmail, "-");
@@ -75,13 +112,13 @@ const logCurrentConfig = async () => {
  */
 const listAccounts = async (obj) => {
   const { accounts } = obj || (await getObject());
-  const arr = [];
-  for (const flag in accounts) {
-    arr.push({
+  const arr = Object.entries(accounts).map(([flag, account], index) => {
+    return {
+      index,
       flag,
-      ...accounts[flag],
-    });
-  }
+      ...account,
+    };
+  });
   console.table(arr);
 };
 
@@ -90,16 +127,17 @@ const listAccounts = async (obj) => {
  */
 const useAnAccount = async (flag, account, isGlobal = false) => {
   const { username, email } = account;
-  child_process.exec(
-    `git config ${isGlobal ? "--global" : ""}  user.name "${username}"`
-  );
-  child_process.exec(
-    `git config ${isGlobal ? "--global" : ""} user.email "${email}"`
-  );
-  console.log(
-    `🎉 Toggle success (scope: ${isGlobal ? "global" : "local repository"}).`
-  );
-  await logCurrentConfig();
+  try {
+    await setGitConfig("user.name", username, isGlobal);
+    await setGitConfig("user.email", email, isGlobal);
+    console.log(
+      `🎉 Toggle success (scope: ${isGlobal ? "global" : "local repository"}).`
+    );
+    await logCurrentConfig();
+  } catch (error) {
+    process.exitCode = 1;
+    console.error(`❌ Toggle failed: ${error.message}`);
+  }
 };
 
 /**
@@ -119,20 +157,32 @@ const selectAnAccount = async (obj, isGlobal = false) => {
     output: process.stdout,
   });
 
-  rl.question(`Please select a index or flag: `, (input) => {
-    rl.close();
-    const isIndex = !isNaN(Number(input));
+  try {
+    const entries = Object.entries(accounts);
+    while (true) {
+      const input = (
+        await askQuestion(rl, `Please select an index or flag: `)
+      ).trim();
+      if (!input) {
+        console.log("❌ Please enter an index or flag.");
+        continue;
+      }
 
-    const flag = isIndex ? Object.keys(accounts)[input] : input;
-    const account = accounts[flag];
+      const isIndex = /^\d+$/.test(input);
+      const flag = isIndex ? entries[Number(input)]?.[0] : input;
+      const account = accounts[flag];
 
-    if (!account) {
-      console.log("❌ No this index or flag");
-      return selectAnAccount(_obj, isGlobal);
-    } else {
-      return useAnAccount(flag, account, isGlobal);
+      if (!account) {
+        console.log("❌ No this index or flag");
+        continue;
+      }
+
+      await useAnAccount(flag, account, isGlobal);
+      return;
     }
-  });
+  } finally {
+    rl.close();
+  }
 };
 
 module.exports = {
