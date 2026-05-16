@@ -72,6 +72,19 @@ gam include github --gitdir ~/work/
 
 Use local repository switches by default. Only run `gam use -g <flag> --yes` when the user explicitly wants to change the global Git identity.
 
+### Claude Code Skill
+
+gitam includes a Claude Code project skill at `.claude/skills/gitam/SKILL.md`. When Claude Code starts in this repository, it can discover the `/gitam` skill automatically.
+
+Install the same skill globally for your user:
+
+```shell
+mkdir -p ~/.claude/skills/gitam
+cp docs/gitam-skill/SKILL.md ~/.claude/skills/gitam/SKILL.md
+```
+
+More agent setup notes are in `docs/ai-agents.md`.
+
 ## Commands
 
 ### Add an Account

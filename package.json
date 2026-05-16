@@ -18,6 +18,9 @@
     "switch git user",
     "multiple git accounts",
     "git includeIf",
+    "ai-agent",
+    "agent-skill",
+    "claude-code",
     "cli"
   ],
   "bin": {
@@ -33,6 +36,7 @@
   "files": [
     "AGENTS.md",
     "llms.txt",
+    ".claude/skills/gitam/*",
     "src/*",
     "docs/*",
     "docs/gitam-skill/*",
