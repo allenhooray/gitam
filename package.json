@@ -1,6 +1,6 @@
 {
   "name": "gitam",
-  "version": "1.2.1-beta.2",
+  "version": "1.2.1",
   "author": "allenhush",
   "description": "Switch and manage multiple Git user.name/user.email identities from the command line",
   "repository": {
