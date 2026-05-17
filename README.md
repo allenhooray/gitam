@@ -3,7 +3,7 @@
 </h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/gitam"><img alt="version" src="https://img.shields.io/badge/version-v1.2.1--beta.0-orange"></a>
+  <a href="https://www.npmjs.com/package/gitam"><img alt="version" src="https://img.shields.io/badge/version-v1.2.1-green"></a>
   <a href="./docs/zh.md">中文</a>
 </p>
 
