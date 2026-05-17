@@ -39,51 +39,93 @@ const getIncludeFilePath = (flag) => {
   return path.join(homePath, ".gitam", "includes", `${flag}.gitconfig`);
 };
 
+const accountToJson = (account) => ({
+  flag: account.flag === "-" ? null : account.flag,
+  username: account.username,
+  email: account.email,
+});
+
+const accountToDisplay = (account) => ({
+  flag: account.flag || "-",
+  username: account.username,
+  email: account.email,
+});
+
+/**
+ * Builds the current git account state and saved account rows.
+ *
+ * @param {{accounts: Record<string, {username: string, email: string}>}} [obj] - Optional loaded database object.
+ * @returns {Promise<{current: {local: object, global: object}, accounts: object[]}>} Account state.
+ */
+const getAccountsState = async (obj) => {
+  const { accounts } = obj || (await getObject());
+  const current = await getCurrentAccounts();
+  const rows = Object.entries(accounts).map(([flag, account], index) => {
+    const status = [];
+    if (Account.isEqual(current.local, account)) {
+      status.push("local");
+      current.local.flag = flag;
+    }
+    if (Account.isEqual(current.global, account)) {
+      status.push("global");
+      current.global.flag = flag;
+    }
+    return {
+      index,
+      flag,
+      username: account.username,
+      email: account.email,
+      status,
+    };
+  });
+
+  return {
+    current: {
+      local: accountToJson(current.local),
+      global: accountToJson(current.global),
+    },
+    accounts: rows,
+  };
+};
+
 /**
  * Prints the current global and repository git account configuration.
  *
+ * @param {{json?: boolean}} [options] - Output options.
  * @returns {Promise<void>}
  */
-const logCurrentConfig = async () => {
-  const { local: localAccount, global: globalAccount } =
-    await getCurrentAccounts();
-
-  const { accounts } = await getObject();
-  for (const flag in accounts) {
-    if (Account.isEqual(localAccount, accounts[flag])) {
-      localAccount.flag = flag;
-    }
-    if (Account.isEqual(globalAccount, accounts[flag])) {
-      globalAccount.flag = flag;
-    }
+const logCurrentConfig = async (options = {}) => {
+  const state = await getAccountsState();
+  if (options.json) {
+    console.log(JSON.stringify(state.current, null, 2));
+    return;
   }
 
-  console.log(`[Global]`, globalAccount.stringify());
-  console.log(`[Local]`, localAccount.stringify());
+  console.log(`[Global]`, formatAccount(accountToDisplay(state.current.global)));
+  console.log(`[Local]`, formatAccount(accountToDisplay(state.current.local)));
 };
 
 /**
  * Prints saved accounts as a table and marks active local/global matches.
  *
  * @param {{accounts: Record<string, {username: string, email: string}>}} [obj] - Optional loaded database object.
+ * @param {{json?: boolean}} [options] - Output options.
  * @returns {Promise<void>}
  */
-const listAccounts = async (obj) => {
-  const { accounts } = obj || (await getObject());
-  const current = await getCurrentAccounts();
+const listAccounts = async (obj, options = {}) => {
+  const state = await getAccountsState(obj);
+  if (options.json) {
+    console.log(JSON.stringify(state, null, 2));
+    return;
+  }
+
   const rows = {};
-  Object.entries(accounts).forEach(([flag, account], index) => {
-    const status = [];
-    if (Account.isEqual(current.local, account)) {
-      status.push("local");
-    }
-    if (Account.isEqual(current.global, account)) {
-      status.push("global");
-    }
-    rows[index] = {
-      flag,
-      status: status.join(","),
-      ...account,
+  state.accounts.forEach((account) => {
+    rows[account.index] = {
+      flag: account.flag,
+      status: account.status.join(","),
+      username: account.username,
+      email: account.email,
     };
   });
   console.table(rows);
@@ -110,7 +152,10 @@ const resolveAccountFlag = (accounts, input) => {
  * @param {string} flag - Existing account flag.
  * @returns {Promise<boolean>} True when overwrite is confirmed.
  */
-const confirmOverwriteFlag = async (flag) => {
+const confirmOverwriteFlag = async (flag, force = false) => {
+  if (force) {
+    return true;
+  }
   if (!isInteractive()) {
     throw new Error(
       `Account flag "${flag}" already exists. Please choose another flag or use \`gam edit\`.`
@@ -125,15 +170,16 @@ const confirmOverwriteFlag = async (flag) => {
  * @param {*} flag - Account flag.
  * @param {*} username - Account username.
  * @param {*} email - Account email.
+ * @param {{force?: boolean}} [options] - Command options.
  * @returns {Promise<void>}
  */
-const addAccount = async (flag, username, email) => {
+const addAccount = async (flag, username, email, options = {}) => {
   const accountInput = normalizeAccountInput(flag, username, email);
   const obj = await getObject();
   const exists = Boolean(obj.accounts[accountInput.flag]);
 
   if (exists) {
-    const confirmed = await confirmOverwriteFlag(accountInput.flag);
+    const confirmed = await confirmOverwriteFlag(accountInput.flag, options.force);
     if (!confirmed) {
       console.log("👌 Add canceled.");
       return;
@@ -195,7 +241,7 @@ const addAccountInteractively = async () => {
  * Edits account fields or renames an account flag.
  *
  * @param {*} flag - Current account flag.
- * @param {{username?: string, email?: string, flag?: string}} options - New account values.
+ * @param {{username?: string, email?: string, flag?: string, force?: boolean}} options - New account values.
  * @returns {Promise<void>}
  */
 const editAccount = async (flag, options) => {
@@ -225,7 +271,7 @@ const editAccount = async (flag, options) => {
   validateEmail(nextAccount.email);
 
   if (nextFlag !== currentFlag && obj.accounts[nextFlag]) {
-    const confirmed = await confirmOverwriteFlag(nextFlag);
+    const confirmed = await confirmOverwriteFlag(nextFlag, options.force);
     if (!confirmed) {
       console.log("👌 Edit canceled.");
       return;
@@ -312,16 +358,17 @@ const removeAccountInteractively = async (obj) => {
  * @param {string} flag - Selected account flag.
  * @param {{username: string, email: string}} account - Selected account data.
  * @param {boolean} [isGlobal=false] - Whether to update global git config.
+ * @param {{yes?: boolean}} [options] - Command options.
  * @returns {Promise<void>}
  */
-const useAnAccount = async (flag, account, isGlobal = false) => {
+const useAnAccount = async (flag, account, isGlobal = false, options = {}) => {
   const { username, email } = account;
   try {
     if (isGlobal) {
       const { global } = await getCurrentAccounts();
       console.log(`[Current Global]`, formatAccount(global));
       console.log(`[Target Global]`, formatAccount(new Account(username, email, flag)));
-      const confirmed = await confirmQuestion("Change global git account?");
+      const confirmed = options.yes || await confirmQuestion("Change global git account?");
       if (!confirmed) {
         console.log("👌 Toggle canceled.");
         return;
@@ -497,9 +544,10 @@ const includeAccountInteractively = async (obj) => {
  *
  * @param {{accounts: Record<string, {username: string, email: string}>}} [obj] - Optional loaded database object.
  * @param {boolean} [isGlobal=false] - Whether to update global git config.
+ * @param {{yes?: boolean}} [options] - Command options.
  * @returns {Promise<void>}
  */
-const selectAnAccount = async (obj, isGlobal = false) => {
+const selectAnAccount = async (obj, isGlobal = false, options = {}) => {
   const _obj = obj || (await getObject());
   const { accounts } = _obj;
 
@@ -541,7 +589,7 @@ const selectAnAccount = async (obj, isGlobal = false) => {
     rl.close();
   }
 
-  await useAnAccount(selectedFlag, selectedAccount, isGlobal);
+  await useAnAccount(selectedFlag, selectedAccount, isGlobal, options);
 };
 
 module.exports = {
@@ -551,6 +599,7 @@ module.exports = {
   includeAccount,
   includeAccountInteractively,
   includeAnAccount,
+  getAccountsState,
   listAccounts,
   logCurrentConfig,
   removeAccount,

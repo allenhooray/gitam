@@ -526,6 +526,103 @@ test("list marks local, global, and shared account status", async () => {
   assert.match(result.stdout, /local,global/);
 });
 
+test("prints current git identity as json", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        work: {
+          username: "Work User",
+          email: "work@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const result = await runCli(["--json"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    env: {
+      GITAM_MOCK_LOCAL_NAME: "Work User",
+      GITAM_MOCK_LOCAL_EMAIL: "work@example.com",
+      GITAM_MOCK_GLOBAL_NAME: "Other User",
+      GITAM_MOCK_GLOBAL_EMAIL: "other@example.com",
+    },
+  });
+  const json = JSON.parse(result.stdout);
+
+  assert.equal(result.code, 0);
+  assert.deepEqual(json, {
+    local: {
+      flag: "work",
+      username: "Work User",
+      email: "work@example.com",
+    },
+    global: {
+      flag: null,
+      username: "Other User",
+      email: "other@example.com",
+    },
+  });
+});
+
+test("lists accounts as json", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+        gitlab: {
+          username: "tom",
+          email: "tom@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const result = await runCli(["list", "--json"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    env: {
+      GITAM_MOCK_LOCAL_NAME: "bob",
+      GITAM_MOCK_LOCAL_EMAIL: "bob@example.com",
+      GITAM_MOCK_GLOBAL_NAME: "tom",
+      GITAM_MOCK_GLOBAL_EMAIL: "tom@example.com",
+    },
+  });
+  const json = JSON.parse(result.stdout);
+
+  assert.equal(result.code, 0);
+  assert.doesNotMatch(result.stdout, /\(index\)/);
+  assert.deepEqual(json.current.local.flag, "github");
+  assert.deepEqual(json.current.global.flag, "gitlab");
+  assert.deepEqual(json.accounts, [
+    {
+      index: 0,
+      flag: "github",
+      username: "bob",
+      email: "bob@example.com",
+      status: ["local"],
+    },
+    {
+      index: 1,
+      flag: "gitlab",
+      username: "tom",
+      email: "tom@example.com",
+      status: ["global"],
+    },
+  ]);
+});
+
 test("include configures git includeIf for an account", async () => {
   const home = await makeTempDir();
   const mockGit = await makeMockGit(home);
@@ -720,6 +817,72 @@ test("non-interactive global use fails before writing git config", async () => {
   assert.ok(!hasGitCall(gitCalls, ["config", "--global", "user.name", "bob"]));
 });
 
+test("global use can be confirmed with --yes in non-interactive mode", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const result = await runCli(["use", "-g", "github", "--yes"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    env: {
+      GITAM_MOCK_GIT_LOG: mockGit.logPath,
+    },
+  });
+  const gitCalls = await readGitLog(mockGit.logPath);
+
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Current Global/);
+  assert.match(result.stdout, /Target Global/);
+  assert.match(result.stdout, /Toggle success/);
+  assert.ok(hasGitCall(gitCalls, ["config", "--global", "user.name", "bob"]));
+  assert.ok(
+    hasGitCall(gitCalls, ["config", "--global", "user.email", "bob@example.com"])
+  );
+});
+
+test("global use with --no-interactive requires --yes before writing git config", async () => {
+  const home = await makeTempDir();
+  const mockGit = await makeMockGit(home);
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "bob",
+          email: "bob@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  const result = await runCli(["use", "-g", "github", "--no-interactive"], {
+    home,
+    pathPrefix: mockGit.binDir,
+    env: {
+      GITAM_FORCE_INTERACTIVE: "1",
+      GITAM_MOCK_GIT_LOG: mockGit.logPath,
+    },
+  });
+  const gitCalls = await readGitLog(mockGit.logPath);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /requires confirmation/);
+  assert.ok(!hasGitCall(gitCalls, ["config", "--global", "user.name", "bob"]));
+});
+
 test("edits account fields and flags with validation", async () => {
   const home = await makeTempDir();
   await fs.writeFile(
@@ -769,6 +932,51 @@ test("edits account fields and flags with validation", async () => {
   result = await runCli(["edit", "gitlab", "--email", "nope"], { home });
   assert.equal(result.code, 1);
   assert.match(result.stderr, /valid email address/);
+});
+
+test("force overwrites existing account flags", async () => {
+  const home = await makeTempDir();
+  await fs.writeFile(
+    path.join(home, ".gam.json"),
+    JSON.stringify({
+      accounts: {
+        github: {
+          username: "old",
+          email: "old@example.com",
+        },
+        gitlab: {
+          username: "tom",
+          email: "tom@example.com",
+        },
+      },
+    }),
+    "utf8"
+  );
+
+  let result = await runCli(
+    ["add", "github", "bob", "bob@example.com", "--force"],
+    { home }
+  );
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Update success/);
+  assert.deepEqual((await readDb(home)).accounts.github, {
+    username: "bob",
+    email: "bob@example.com",
+  });
+
+  result = await runCli(["edit", "github", "--flag", "gitlab", "--force"], {
+    home,
+  });
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Edit success/);
+  assert.deepEqual(await readDb(home), {
+    accounts: {
+      gitlab: {
+        username: "bob",
+        email: "bob@example.com",
+      },
+    },
+  });
 });
 
 test("edit flag collision asks before overwriting", async () => {
@@ -857,7 +1065,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(script, /--condition:includeIf condition/);
   assert.match(script, /--gitdir-i:Configure includeIf\.gitdir\/i/);
   assert.match(script, /--username:New account username/);
+  assert.match(script, /--force:Overwrite an existing account flag/);
   assert.match(script, /--global:Set global config/);
+  assert.match(script, /--yes:Confirm global config changes/);
+  assert.match(script, /--no-interactive:Disable interactive prompts/);
   assert.match(script, /--all:Remove all accounts/);
   assert.match(script, /__flags/);
 
@@ -872,9 +1083,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(script, /complete -F _gitam_completion gam/);
   assert.match(script, /commands="list ls add use u include edit remove rm completion"/);
   assert.match(script, /--condition --gitdir --gitdir-i --onbranch/);
-  assert.match(script, /--username --email --flag/);
-  assert.match(script, /-g --global/);
+  assert.match(script, /--username --email --flag --force/);
+  assert.match(script, /-g --global --yes/);
   assert.match(script, /-a --all/);
+  assert.match(script, /--no-interactive/);
   assert.match(script, /__flags/);
 
   result = await runCli(["completion"], {
@@ -888,7 +1100,10 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(script, /complete -c gam/);
   assert.match(script, /__fish_seen_subcommand_from include" -l gitdir-i -r/);
   assert.match(script, /__fish_seen_subcommand_from edit" -l username -r/);
+  assert.match(script, /__fish_seen_subcommand_from add" -l force/);
   assert.match(script, /__fish_seen_subcommand_from use" -l global/);
+  assert.match(script, /__fish_seen_subcommand_from use" -l yes/);
+  assert.match(script, /__fish_seen_subcommand_from use" -l no-interactive/);
   assert.match(script, /__fish_seen_subcommand_from remove" -l all/);
   assert.match(script, /__gitam_accounts/);
 
@@ -901,15 +1116,19 @@ test("completion command detects shell, writes script, and prints rc instruction
   assert.match(result.stdout, /\. "\$HOME\/\.gam-completion\.ps1"/);
   script = await fs.readFile(path.join(home, ".gam-completion.ps1"), "utf8");
   assert.match(script, /Register-ArgumentCompleter/);
-  assert.match(script, /include = '--condition --gitdir --gitdir-i --onbranch'/);
-  assert.match(script, /edit = '--username --email --flag'/);
-  assert.match(script, /use = '-g --global'/);
-  assert.match(script, /remove = '-a --all'/);
+  assert.match(script, /include = '--no-interactive --condition --gitdir --gitdir-i --onbranch'/);
+  assert.match(script, /edit = '--no-interactive --username --email --flag --force'/);
+  assert.match(script, /use = '--no-interactive -g --global --yes'/);
+  assert.match(script, /remove = '--no-interactive -a --all'/);
   assert.match(script, /gitam/);
 
   result = await runCli(["__flags"], { home });
   assert.equal(result.code, 0);
   assert.match(result.stdout, /github/);
+
+  result = await runCli(["__flags", "--json"], { home });
+  assert.equal(result.code, 0);
+  assert.deepEqual(JSON.parse(result.stdout), { flags: ["github"] });
 });
 
 test("interactive selection handles blank, invalid, and index input", async () => {

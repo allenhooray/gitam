@@ -2,16 +2,26 @@
   "name": "gitam",
   "version": "1.2.1-beta.2",
   "author": "allenhush",
-  "description": "Git Account Manager",
+  "description": "Switch and manage multiple Git user.name/user.email identities from the command line",
   "repository": {
     "type": "git",
     "url": "https://github.com/AllenHUSH/gitam"
   },
   "keywords": [
     "git",
+    "git user",
+    "git config",
+    "git identity",
     "git account",
     "git account manager",
-    "git account toggle"
+    "git account toggle",
+    "switch git user",
+    "multiple git accounts",
+    "git includeIf",
+    "ai-agent",
+    "agent-skill",
+    "claude-code",
+    "cli"
   ],
   "bin": {
     "gam": "index.js",
@@ -24,8 +34,12 @@
     "pack:dry-run": "node scripts/pack-dry-run.js"
   },
   "files": [
+    "AGENTS.md",
+    "llms.txt",
+    ".claude/skills/gitam/*",
     "src/*",
     "docs/*",
+    "docs/gitam-skill/*",
     "scripts/*"
   ],
   "license": "MIT",

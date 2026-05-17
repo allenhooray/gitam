@@ -17,19 +17,34 @@ const COMMANDS = [
 ];
 const COMMAND_NAMES = COMMANDS.map(({ name }) => name).join(" ");
 const ACCOUNT_COMMANDS = "use u include edit remove rm";
+const GLOBAL_OPTIONS = [
+  { name: "--no-interactive", description: "Disable interactive prompts" },
+];
 const COMMAND_OPTIONS = {
+  list: [
+    { name: "--json", description: "Print machine-readable JSON" },
+  ],
+  ls: [
+    { name: "--json", description: "Print machine-readable JSON" },
+  ],
+  add: [
+    { name: "--force", description: "Overwrite an existing account flag" },
+  ],
   edit: [
     { name: "--username", description: "New account username" },
     { name: "--email", description: "New account email" },
     { name: "--flag", description: "New account flag" },
+    { name: "--force", description: "Overwrite an existing account flag" },
   ],
   use: [
     { name: "-g", description: "Set global config" },
     { name: "--global", description: "Set global config" },
+    { name: "--yes", description: "Confirm global config changes" },
   ],
   u: [
     { name: "-g", description: "Set global config" },
     { name: "--global", description: "Set global config" },
+    { name: "--yes", description: "Confirm global config changes" },
   ],
   include: [
     { name: "--condition", description: "includeIf condition" },
@@ -82,6 +97,10 @@ const COMPLETION_CONFIG = {
  */
 const listFlags = async () => {
   const { accounts } = await getObject();
+  if (process.argv.includes("--json")) {
+    console.log(JSON.stringify({ flags: Object.keys(accounts) }, null, 2));
+    return;
+  }
   console.log(Object.keys(accounts).join("\n"));
 };
 
@@ -131,18 +150,23 @@ const detectShell = () => {
 
 const getSupportedShellsText = () => SUPPORTED_SHELLS.join(", ");
 
-const getOptionNames = (command) => (COMMAND_OPTIONS[command] || [])
+const getCommandOptions = (command) => [
+  ...GLOBAL_OPTIONS,
+  ...(COMMAND_OPTIONS[command] || []),
+];
+
+const getOptionNames = (command) => getCommandOptions(command)
   .map(({ name }) => name)
   .join(" ");
 
-const getZshOptionArray = (command) => (COMMAND_OPTIONS[command] || [])
+const getZshOptionArray = (command) => getCommandOptions(command)
   .map(({ name, description }) => `        '${name}:${description}'`)
   .join("\n");
 
 const getFishOptions = (binary) => {
   const lines = [];
-  for (const [command, options] of Object.entries(COMMAND_OPTIONS)) {
-    for (const { name, description } of options) {
+  for (const command of COMMAND_NAMES.split(" ")) {
+    for (const { name, description } of getCommandOptions(command)) {
       const option = name.startsWith("--")
         ? `-l ${name.slice(2)}`
         : `-s ${name.slice(1)}`;
